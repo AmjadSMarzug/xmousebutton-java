@@ -60,6 +60,7 @@ public final class ActionParser {
                 }
                 yield new Action.Run(command);
             }
+            case "hold" -> parseHold(arg);
             case "layer" -> {
                 requireArg(verb, arg);
                 int layer;
@@ -99,6 +100,42 @@ public final class ActionParser {
             }
         }
         return new Action.Wheel(direction, notches);
+    }
+
+    /** {@code hold <ms> <action> [| <tap action>]}. Without a tap action, a short press does nothing. */
+    private static Action parseHold(String arg) throws ConfigException {
+        requireArg("hold", arg);
+        String[] parts = arg.split("\\s+", 2);
+        long millis;
+        try {
+            millis = Long.parseLong(parts[0]);
+        } catch (NumberFormatException e) {
+            throw new ConfigException("hold needs a time in milliseconds first");
+        }
+        if (millis < 100 || millis > 10_000) {
+            throw new ConfigException("hold time must be from 100 to 10000 ms");
+        }
+        if (parts.length < 2 || parts[1].isBlank()) {
+            throw new ConfigException("hold needs an action after the time");
+        }
+        String body = parts[1];
+        String tapText = "block";
+        int bar = body.indexOf('|');
+        if (bar >= 0) {
+            tapText = body.substring(bar + 1);
+            body = body.substring(0, bar);
+        }
+        Action onHold = parse(body);
+        Action onTap = parse(tapText);
+        requireSimple(onHold, "hold");
+        requireSimple(onTap, "hold tap");
+        return new Action.Hold(millis, onHold, onTap);
+    }
+
+    private static void requireSimple(Action action, String context) throws ConfigException {
+        if (action instanceof Action.Hold || action instanceof Action.Layer) {
+            throw new ConfigException(context + " cannot be hold or layer");
+        }
     }
 
     private static Action noArg(String verb, String arg, Action action) throws ConfigException {

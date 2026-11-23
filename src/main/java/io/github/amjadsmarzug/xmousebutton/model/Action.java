@@ -37,4 +37,11 @@ public sealed interface Action {
     /** While this button is held, use the mappings of layer {@code layer} (1 to 10). */
     record Layer(int layer) implements Action {
     }
+
+    /**
+     * Long-press binding. If the button is held for {@code millis} ms, {@code onHold} runs
+     * while it is still down. If it is released earlier, {@code onTap} runs instead.
+     */
+    record Hold(long millis, Action onHold, Action onTap) implements Action {
+    }
 }

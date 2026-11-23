@@ -102,6 +102,7 @@ public final class ConfigParser {
         private final List<String> processGlobs = new ArrayList<>();
         private final List<String> titleGlobs = new ArrayList<>();
         private final Map<Integer, Map<MouseButton, Action>> layers = new LinkedHashMap<>();
+        private final Map<MouseButton, Map<MouseButton, Action>> chords = new EnumMap<>(MouseButton.class);
 
         ProfileBuilder(String name) {
             this.name = name;
@@ -116,6 +117,10 @@ public final class ConfigParser {
         }
 
         private void applyBinding(String key, String value) throws ConfigException {
+            if (key.contains("+")) {
+                applyChord(key, value);
+                return;
+            }
             int layer = 0;
             String buttonName = key;
             Matcher layerMatcher = LAYER_KEY.matcher(key);
@@ -131,6 +136,9 @@ public final class ConfigParser {
                 throw new ConfigException("unknown button '" + buttonName + "'");
             }
             Action action = ActionParser.parse(value);
+            if (button.isWheel() && action instanceof Action.Hold) {
+                throw new ConfigException("hold does not work on wheel buttons");
+            }
             Map<MouseButton, Action> layerMap = layers.computeIfAbsent(layer, l -> new EnumMap<>(MouseButton.class));
             if (layerMap.containsKey(button)) {
                 throw new ConfigException("'" + key + "' is bound twice in [" + name + "]");
@@ -138,8 +146,33 @@ public final class ConfigParser {
             layerMap.put(button, action);
         }
 
+        /** {@code first+second = action}: fires when {@code second} is pressed while {@code first} is held. */
+        private void applyChord(String key, String value) throws ConfigException {
+            String[] names = key.split("\\+");
+            if (names.length != 2) {
+                throw new ConfigException("a chord takes exactly two buttons, like left+right");
+            }
+            MouseButton first = MouseButton.fromConfigName(names[0].strip()).orElse(null);
+            MouseButton second = MouseButton.fromConfigName(names[1].strip()).orElse(null);
+            if (first == null || second == null) {
+                throw new ConfigException("unknown button in chord '" + key + "'");
+            }
+            if (!first.isPhysicalButton() || !second.isPhysicalButton() || first == second) {
+                throw new ConfigException("chords need two different physical buttons");
+            }
+            Action action = ActionParser.parse(value);
+            if (action instanceof Action.Hold || action instanceof Action.Layer) {
+                throw new ConfigException("a chord cannot be hold or layer");
+            }
+            Map<MouseButton, Action> byFirst = chords.computeIfAbsent(first, f -> new EnumMap<>(MouseButton.class));
+            if (byFirst.containsKey(second)) {
+                throw new ConfigException("chord '" + key + "' is defined twice in [" + name + "]");
+            }
+            byFirst.put(second, action);
+        }
+
         Profile build() {
-            return new Profile(name, processGlobs, titleGlobs, layers);
+            return new Profile(name, processGlobs, titleGlobs, layers, chords);
         }
 
         private static List<String> splitList(String value) {

@@ -20,11 +20,14 @@ public final class Profile {
     private final List<Pattern> processPatterns;
     private final List<Pattern> titlePatterns;
     private final Map<MouseButton, Action>[] layers;
+    private final Map<MouseButton, Map<MouseButton, Action>> chords;
 
     @SuppressWarnings("unchecked")
     public Profile(String name, List<String> processGlobs, List<String> titleGlobs,
-                   Map<Integer, Map<MouseButton, Action>> bindings) {
+                   Map<Integer, Map<MouseButton, Action>> bindings,
+                   Map<MouseButton, Map<MouseButton, Action>> chords) {
         this.name = name;
+        this.chords = Map.copyOf(chords);
         this.processPatterns = processGlobs.stream().map(Glob::compile).toList();
         this.titlePatterns = titleGlobs.stream().map(Glob::compile).toList();
         this.layers = new Map[MAX_LAYER + 1];
@@ -66,7 +69,16 @@ public final class Profile {
         return action != null ? action : Action.Passthrough.INSTANCE;
     }
 
+    /**
+     * Action for pressing {@code second} while {@code first} is held, or {@code null} if no chord
+     * is defined for that pair.
+     */
+    public Action chord(MouseButton first, MouseButton second) {
+        Map<MouseButton, Action> byFirst = chords.get(first);
+        return byFirst == null ? null : byFirst.get(second);
+    }
+
     public static Profile empty(String name) {
-        return new Profile(name, List.of(), List.of(), Map.of());
+        return new Profile(name, List.of(), List.of(), Map.of(), Map.of());
     }
 }
