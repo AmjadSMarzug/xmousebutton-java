@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: linux
+          - os: windows-latest
+            label: windows
+          - os: macos-latest
+            label: macos
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build, test and package fat jar
+        run: ./gradlew build fatJar --no-daemon --stacktrace
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts)
+          # jpackage on macOS refuses a zero major version, so map 0.x.y to 1.x.y there.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            VERSION=$(echo "$VERSION" | awk -F. 'BEGIN{OFS="."} { if ($1 == 0) $1 = 1; print }')
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create app image with jpackage
+        run: |
+          STAGING=build/jpackage-input
+          rm -rf "$STAGING" dist
+          mkdir -p "$STAGING"
+          cp build/libs/*-all.jar "$STAGING/xmousebutton.jar"
+          jpackage \
+            --type app-image \
+            --name XMouseButton \
+            --app-version "${{ steps.version.outputs.version }}" \
+            --input "$STAGING" \
+            --main-jar xmousebutton.jar \
+            --main-class io.github.amjadsmarzug.xmousebutton.Main \
+            --dest dist
+
+      - name: Archive app image (Linux and macOS)
+        if: runner.os != 'Windows'
+        run: |
+          tar -C dist -czf "XMouseButton-${{ matrix.label }}-${{ steps.version.outputs.version }}.tar.gz" XMouseButton
+
+      - name: Archive app image (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/XMouseButton -DestinationPath "XMouseButton-windows-${{ steps.version.outputs.version }}.zip"
+
+      - name: Keep the fat jar for Linux runners only
+        if: runner.os == 'Linux'
+        run: cp build/libs/*-all.jar "xmousebutton-${{ steps.version.outputs.version }}-all.jar"
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.label }}
+          path: |
+            XMouseButton-*.tar.gz
+            XMouseButton-*.zip
+            xmousebutton-*-all.jar
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+
+      - name: Write checksums
+        working-directory: packages
+        run: sha256sum * > SHA256SUMS.txt
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            packages/*
