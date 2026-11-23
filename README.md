@@ -98,12 +98,41 @@ Wheel buttons only fire on scroll; they have no release.
 | `wheel` | `wheel_up = wheel down 3` | scroll by 1 to 20 notches (`up`, `down`, `left`, `right`) |
 | `run` | `middle = run "C:\Tools\my app.exe" -x` | start a program without waiting for it |
 | `layer` | `middle = layer 2` | while the button is held, use the `layer2.*` bindings (layers 1 to 10) |
+| `hold` | `x1 = hold 500 key ctrl+c \| key ctrl+v` | long press (100 to 10000 ms) runs the first action; a short tap runs the one after `\|` (default: nothing) |
 
 Key names: `a`–`z`, `0`–`9`, `f1`–`f24`, `enter`, `tab`, `esc`, `space`, `backspace`, `delete`,
 `insert`, `home`, `end`, `pageup`, `pagedown`, `left`, `up`, `right`, `down`, `plus`, `minus`,
 `comma`, `period`, `printscreen`, `capslock`, `volume_up`, `volume_down`, `mute`,
 `media_play_pause`, `media_next`, `media_prev`, `media_stop`, `browser_back`,
 `browser_forward`, `browser_refresh`, `browser_home`. Modifiers: `ctrl`, `shift`, `alt`, `win`.
+
+### Chords
+
+`first+second = action` fires when `second` is pressed while `first` is held. Both releases are
+swallowed, so neither button's own action is seen by Windows as a click.
+
+```ini
+[default]
+left = block
+right = block
+left+right = key ctrl+c
+```
+
+Chords are checked in order: `left+right` and `right+left` are separate bindings. Only physical
+buttons can be chorded. The first button still runs its own binding when pressed, so bind it to
+`block`, `hold` or a layer if you want the chord to be silent. A chord cannot use `hold` or
+`layer`.
+
+### Hold (long press)
+
+```ini
+[default]
+x1 = hold 500 key ctrl+shift+esc | key f5
+```
+
+Holding `x1` for 500 ms runs `key ctrl+shift+esc` while the button is still down. Releasing it
+earlier runs `key f5`. Hold timers are cancelled when a chord uses the button. Hold does not work
+on wheel buttons, and a hold action cannot be another hold or a layer.
 
 ### Layers
 
@@ -124,8 +153,6 @@ layer2.wheel_down = key ctrl+minus
 These are not implemented yet:
 
 - per-profile pointer speed, DPI and scroll-speed settings
-- chorded buttons (pressing two buttons together)
-- timed or long-press actions
 - a graphical configuration editor (the config file is plain text)
 - macros and text typing
 - Linux and macOS input backends
