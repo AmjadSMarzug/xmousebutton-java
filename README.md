@@ -47,13 +47,14 @@ Each release also has `SHA256SUMS.txt`.
 ### Command line
 
 ```
-xmousebutton [--config FILE] [--check] [--version]
+xmousebutton [--config FILE] [--check] [--editor] [--version]
 ```
 
 | Option | Meaning |
 |--------|---------|
 | `--config FILE` | read bindings from FILE (default `~/.xmousebutton/config.conf`) |
 | `--check` | parse the config, print errors with line numbers, and exit |
+| `--editor` | open the graphical config editor |
 | `--version` | print the version |
 
 ## Configuration
@@ -99,6 +100,12 @@ Wheel buttons only fire on scroll; they have no release.
 | `run` | `middle = run "C:\Tools\my app.exe" -x` | start a program without waiting for it |
 | `layer` | `middle = layer 2` | while the button is held, use the `layer2.*` bindings (layers 1 to 10) |
 | `hold` | `x1 = hold 500 key ctrl+c \| key ctrl+v` | long press (100 to 10000 ms) runs the first action; a short tap runs the one after `\|` (default: nothing) |
+| `type` | `x2 = type hello there` | type literal text (quotes are stripped if the text is wrapped in them) |
+| `macro` | `middle = macro key ctrl+a ; wait 50 ; key ctrl+c` | run several actions in order; steps are separated by `;` |
+| `wait` | `wait 200` (inside a macro only) | pause for 0 to 60000 ms between macro steps |
+
+Macros run on a background thread, so a long macro never delays the mouse. A macro can contain
+`key`, `click`, `wheel`, `type`, `run` and `wait` steps, but not `macro`, `hold` or `layer`.
 
 Key names: `a`–`z`, `0`–`9`, `f1`–`f24`, `enter`, `tab`, `esc`, `space`, `backspace`, `delete`,
 `insert`, `home`, `end`, `pageup`, `pagedown`, `left`, `up`, `right`, `down`, `plus`, `minus`,
@@ -148,14 +155,43 @@ layer2.wheel_up   = key ctrl+plus
 layer2.wheel_down = key ctrl+minus
 ```
 
+### Pointer speed
+
+```ini
+[games]
+match.process = game.exe
+pointer_speed = 15
+```
+
+While a profile with `pointer_speed` is active, the Windows pointer speed is set to that value
+(1 to 20; Windows default is 10). When focus moves to a profile without it, the system speed is
+restored. The check runs four times a second, so the speed follows the window even without a
+click.
+
+The change applies to the live session only and is not written to the registry. The original
+speed is saved to `~/.xmousebutton/pointer-speed.bak` first. If the program crashes, the next
+start puts the original speed back from that file.
+
+Mouse DPI is set in the mouse hardware, and Windows offers no API to change it per application,
+so there is no per-profile DPI setting. Pointer speed is the software control that is available.
+
+### Config editor
+
+Run `xmousebutton --editor`, or choose **Edit config...** from the tray menu. The editor:
+
+- checks the config as you type and shows errors with line numbers
+- lists the profiles, and clicking one jumps to its section
+- refuses to save a config that would not load
+- has **Add profile** for a template and **Help** for the syntax reference
+
+After saving, choose **Reload config** in the tray to apply the changes.
+
 ## Known gaps compared with X-Mouse Button Control
 
 These are not implemented yet:
 
-- per-profile pointer speed, DPI and scroll-speed settings
-- a graphical configuration editor (the config file is plain text)
-- macros and text typing
-- Linux and macOS input backends
+- per-profile scroll-speed settings
+- Linux and macOS input backends (the editor and `--check` work on every platform)
 
 ## Building
 
