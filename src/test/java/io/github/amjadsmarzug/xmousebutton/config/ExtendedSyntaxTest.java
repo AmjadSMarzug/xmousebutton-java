@@ -58,24 +58,6 @@ class ExtendedSyntaxTest {
     }
 
     @Test
-    void sectionsAreListedWithLineNumbers() {
-        List<ConfigText.Section> sections = ConfigText.sections("# c\n[default]\nx1 = block\n\n  [browser]  \n");
-        assertEquals(2, sections.size());
-        assertEquals("default", sections.get(0).name());
-        assertEquals(1, sections.get(0).line());
-        assertEquals("browser", sections.get(1).name());
-        assertEquals(4, sections.get(1).line());
-    }
-
-    @Test
-    void offsetOfLineMatchesLineStarts() {
-        String text = "ab\r\ncd\nef";
-        assertEquals(0, ConfigText.offsetOfLine(text, 0));
-        assertEquals(4, ConfigText.offsetOfLine(text, 1));
-        assertEquals(7, ConfigText.offsetOfLine(text, 2));
-    }
-
-    @Test
     void chordsAndHoldsStillParseAlongsideNewSyntax() throws Exception {
         Config config = ConfigParser.parse("""
                 [default]

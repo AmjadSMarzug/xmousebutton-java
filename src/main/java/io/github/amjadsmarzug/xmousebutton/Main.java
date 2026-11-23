@@ -6,7 +6,7 @@ import io.github.amjadsmarzug.xmousebutton.engine.Engine;
 import io.github.amjadsmarzug.xmousebutton.model.Config;
 import io.github.amjadsmarzug.xmousebutton.platform.Platform;
 import io.github.amjadsmarzug.xmousebutton.platform.PlatformFactory;
-import io.github.amjadsmarzug.xmousebutton.ui.ConfigEditor;
+import io.github.amjadsmarzug.xmousebutton.ui.SetupWindow;
 import io.github.amjadsmarzug.xmousebutton.ui.Tray;
 
 import java.awt.GraphicsEnvironment;
@@ -67,7 +67,7 @@ public final class Main {
                 System.exit(3);
                 return;
             }
-            ConfigEditor.open(configPath, null);
+            SetupWindow.open(configPath, null);
             return;
         }
 
@@ -101,7 +101,7 @@ public final class Main {
         Path finalConfigPath = configPath;
         Tray tray = new Tray(
                 () -> reload(finalConfigPath, engine),
-                () -> ConfigEditor.open(finalConfigPath, () -> reload(finalConfigPath, engine)),
+                () -> SetupWindow.open(finalConfigPath, () -> reload(finalConfigPath, engine)),
                 done::countDown);
         boolean trayShown = tray.install("XMouseButton: " + finalConfigPath.getFileName());
         if (!trayShown) {
@@ -159,7 +159,7 @@ public final class Main {
                   --config FILE   read bindings from FILE
                                   (default: ~/.xmousebutton/config.conf)
                   --check         parse the config, report errors and exit
-                  --editor        open the graphical config editor
+                  --editor        open the profile setup window
                   --version       print the version
                 """);
     }

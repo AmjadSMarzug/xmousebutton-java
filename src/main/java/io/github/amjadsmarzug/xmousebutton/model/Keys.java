@@ -1,13 +1,13 @@
 package io.github.amjadsmarzug.xmousebutton.model;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Name to Windows virtual-key code table. Names are lowercase. */
 public final class Keys {
 
-    private static final Map<String, Integer> MODIFIERS = new HashMap<>();
-    private static final Map<String, Integer> KEYS = new HashMap<>();
+    private static final Map<String, Integer> MODIFIERS = new LinkedHashMap<>();
+    private static final Map<String, Integer> KEYS = new LinkedHashMap<>();
 
     static {
         MODIFIERS.put("ctrl", 0x11);
@@ -72,6 +72,24 @@ public final class Keys {
     }
 
     private Keys() {
+    }
+
+    /**
+     * Canonical config name for a virtual-key code, or {@code null} if unknown. Where several
+     * names share a code, the one listed first in this class is used.
+     */
+    public static String nameOf(int vk) {
+        for (Map.Entry<String, Integer> e : MODIFIERS.entrySet()) {
+            if (e.getValue() == vk) {
+                return e.getKey();
+            }
+        }
+        for (Map.Entry<String, Integer> e : KEYS.entrySet()) {
+            if (e.getValue() == vk) {
+                return e.getKey();
+            }
+        }
+        return null;
     }
 
     /** Virtual-key code for a modifier name, or {@code null} if it is not a modifier. */

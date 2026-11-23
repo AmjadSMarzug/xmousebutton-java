@@ -17,6 +17,9 @@ public final class Profile {
     public static final int MAX_LAYER = 10;
 
     private final String name;
+    private final boolean enabled;
+    private final List<String> processGlobs;
+    private final List<String> titleGlobs;
     private final List<Pattern> processPatterns;
     private final List<Pattern> titlePatterns;
     private final Map<MouseButton, Action>[] layers;
@@ -24,15 +27,18 @@ public final class Profile {
     private final Integer pointerSpeed;
 
     @SuppressWarnings("unchecked")
-    public Profile(String name, List<String> processGlobs, List<String> titleGlobs,
+    public Profile(String name, boolean enabled, List<String> processGlobs, List<String> titleGlobs,
                    Map<Integer, Map<MouseButton, Action>> bindings,
                    Map<MouseButton, Map<MouseButton, Action>> chords,
                    Integer pointerSpeed) {
         this.name = name;
-        this.chords = Map.copyOf(chords);
-        this.pointerSpeed = pointerSpeed;
+        this.enabled = enabled;
+        this.processGlobs = List.copyOf(processGlobs);
+        this.titleGlobs = List.copyOf(titleGlobs);
         this.processPatterns = processGlobs.stream().map(Glob::compile).toList();
         this.titlePatterns = titleGlobs.stream().map(Glob::compile).toList();
+        this.chords = Map.copyOf(chords);
+        this.pointerSpeed = pointerSpeed;
         this.layers = new Map[MAX_LAYER + 1];
         for (int i = 0; i <= MAX_LAYER; i++) {
             Map<MouseButton, Action> map = bindings.get(i);
@@ -44,12 +50,27 @@ public final class Profile {
         return name;
     }
 
+    public boolean enabled() {
+        return enabled;
+    }
+
     public boolean isFallback() {
         return FALLBACK_NAME.equalsIgnoreCase(name);
     }
 
-    /** A profile with no match rules never matches a window on its own. */
+    public List<String> processGlobs() {
+        return processGlobs;
+    }
+
+    public List<String> titleGlobs() {
+        return titleGlobs;
+    }
+
+    /** A profile with no match rules never matches a window on its own. Disabled profiles never match. */
     public boolean matches(WindowInfo window) {
+        if (!enabled) {
+            return false;
+        }
         if (processPatterns.isEmpty() && titlePatterns.isEmpty()) {
             return false;
         }
@@ -72,6 +93,16 @@ public final class Profile {
         return action != null ? action : Action.Passthrough.INSTANCE;
     }
 
+    /** Bindings defined directly on one layer (no fallback). Layer 0 is the base mapping. */
+    public Map<MouseButton, Action> layerBindings(int layer) {
+        return Map.copyOf(layers[layer]);
+    }
+
+    /** All chord bindings, keyed by the first button then the second. */
+    public Map<MouseButton, Map<MouseButton, Action>> chords() {
+        return chords;
+    }
+
     /**
      * Action for pressing {@code second} while {@code first} is held, or {@code null} if no chord
      * is defined for that pair.
@@ -87,6 +118,6 @@ public final class Profile {
     }
 
     public static Profile empty(String name) {
-        return new Profile(name, List.of(), List.of(), Map.of(), Map.of(), null);
+        return new Profile(name, true, List.of(), List.of(), Map.of(), Map.of(), null);
     }
 }

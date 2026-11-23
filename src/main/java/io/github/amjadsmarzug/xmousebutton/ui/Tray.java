@@ -35,7 +35,7 @@ public final class Tray {
         reload.addActionListener(e -> onReload.run());
         MenuItem exit = new MenuItem("Exit");
         exit.addActionListener(e -> onExit.run());
-        MenuItem edit = new MenuItem("Edit config...");
+        MenuItem edit = new MenuItem("Profile setup...");
         edit.addActionListener(e -> onEdit.run());
         menu.add(reload);
         menu.add(edit);

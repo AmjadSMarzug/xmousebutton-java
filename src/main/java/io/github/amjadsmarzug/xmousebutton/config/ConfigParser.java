@@ -104,6 +104,15 @@ public final class ConfigParser {
         private final Map<Integer, Map<MouseButton, Action>> layers = new LinkedHashMap<>();
         private final Map<MouseButton, Map<MouseButton, Action>> chords = new EnumMap<>(MouseButton.class);
         private Integer pointerSpeed;
+        private boolean enabled = true;
+
+        private static boolean parseBoolean(String value) throws ConfigException {
+            return switch (value.toLowerCase(Locale.ROOT)) {
+                case "true", "yes", "on", "1" -> true;
+                case "false", "no", "off", "0" -> false;
+                default -> throw new ConfigException("enabled must be true or false");
+            };
+        }
 
         ProfileBuilder(String name) {
             this.name = name;
@@ -114,6 +123,7 @@ public final class ConfigParser {
                 case "match.process" -> processGlobs.addAll(splitList(value));
                 case "match.title" -> titleGlobs.addAll(splitList(value));
                 case "pointer_speed" -> applyPointerSpeed(value);
+                case "enabled" -> enabled = parseBoolean(value);
                 default -> applyBinding(key, value);
             }
         }
@@ -188,7 +198,7 @@ public final class ConfigParser {
         }
 
         Profile build() {
-            return new Profile(name, processGlobs, titleGlobs, layers, chords, pointerSpeed);
+            return new Profile(name, enabled, processGlobs, titleGlobs, layers, chords, pointerSpeed);
         }
 
         private static List<String> splitList(String value) {

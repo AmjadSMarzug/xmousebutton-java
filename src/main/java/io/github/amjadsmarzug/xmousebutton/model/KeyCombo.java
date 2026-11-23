@@ -42,4 +42,15 @@ public record KeyCombo(List<Integer> modifiers, int key) {
         }
         return new KeyCombo(mods, key);
     }
+
+    /** Writes the combo in config syntax, for example {@code ctrl+shift+t}. */
+    public String toConfigString() {
+        StringBuilder out = new StringBuilder();
+        for (int mod : modifiers) {
+            out.append(Keys.nameOf(mod)).append('+');
+        }
+        String key = Keys.nameOf(key());
+        out.append(key != null ? key : "0x" + Integer.toHexString(key()));
+        return out.toString();
+    }
 }
