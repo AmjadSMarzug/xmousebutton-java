@@ -13,7 +13,7 @@ jobs:
     name: Package (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -71,7 +71,8 @@ jobs:
       - name: Archive app image (Linux and macOS)
         if: runner.os != 'Windows'
         run: |
-          tar -C dist -czf "XMouseButton-${{ matrix.label }}-${{ steps.version.outputs.version }}.tar.gz" XMouseButton
+          # jpackage writes XMouseButton on Linux and XMouseButton.app on macOS.
+          tar -C dist -czf "XMouseButton-${{ matrix.label }}-${{ steps.version.outputs.version }}.tar.gz" $(ls dist)
 
       - name: Archive app image (Windows)
         if: runner.os == 'Windows'
