@@ -54,7 +54,7 @@ xmousebutton [--config FILE] [--check] [--editor] [--version]
 |--------|---------|
 | `--config FILE` | read bindings from FILE (default `~/.xmousebutton/config.conf`) |
 | `--check` | parse the config, print errors with line numbers, and exit |
-| `--editor` | open the graphical config editor |
+| `--editor` | open the profile setup window |
 | `--version` | print the version |
 
 ## Configuration
@@ -175,23 +175,36 @@ start puts the original speed back from that file.
 Mouse DPI is set in the mouse hardware, and Windows offers no API to change it per application,
 so there is no per-profile DPI setting. Pointer speed is the software control that is available.
 
-### Config editor
+### Profile setup window
 
-Run `xmousebutton --editor`, or choose **Edit config...** from the tray menu. The editor:
+Run `xmousebutton --editor`, or choose **Profile setup...** from the tray menu.
 
-- checks the config as you type and shows errors with line numbers
-- lists the profiles, and clicking one jumps to its section
-- refuses to save a config that would not load
-- has **Add profile** for a template and **Help** for the syntax reference
+- **Profiles** (left): one row per profile. Untick the box to disable a profile without deleting
+  it. Add, Copy, Edit, Remove, Up and Down manage the list. Order matters: the first enabled
+  profile whose rules match the window is used.
+- **Layer tabs** (right): *Default* is the base mapping. *Layer 1* to *Layer 10* are used while a
+  `layer N` button is held. Each input has a dropdown for its kind of action and an **Edit...**
+  button for the exact action text, for example `hold 500 key f5 | key f6`. Choosing
+  *No Change* removes the binding.
+- **Chords** tab: add, edit and remove two-button chords for the selected profile.
+- **Profile Information**: the profile's description, process and caption rules, and pointer
+  speed. Use **Edit profile...** to change them.
+- **Save Profile** writes the file. **Apply** writes it and reloads the running program. **Load
+  Profile** opens another file.
 
-After saving, choose **Reload config** in the tray to apply the changes.
+Changes stay in the window until you save. Closing with unsaved changes asks first. A file that
+cannot be parsed is shown as an error and is never overwritten.
+
+The window does not yet offer Settings, Export or Import, or the per-layer name and
+"disable in next/previous layer" options from X-Mouse Button Control.
 
 ## Known gaps compared with X-Mouse Button Control
 
 These are not implemented yet:
 
 - per-profile scroll-speed settings
-- Linux and macOS input backends (the editor and `--check` work on every platform)
+- layer names and "disable in next/previous layer"
+- Linux and macOS input backends (the setup window and `--check` work on every platform)
 
 ## Building
 
@@ -222,7 +235,7 @@ src/main/java/io/github/amjadsmarzug/xmousebutton/
   engine/                   turns raw events into actions, tracks presses and layers
   platform/                 OS boundary (Platform interface)
   platform/windows/         JNA backend: hook, key and mouse injection, window lookup
-  ui/                       tray icon
+  ui/                       setup window and tray icon
 src/main/resources/         default-config.conf (copied on first run)
 src/test/java/              unit tests (no desktop needed)
 ```
