@@ -15,11 +15,13 @@ import java.awt.image.BufferedImage;
 public final class Tray {
 
     private final Runnable onReload;
+    private final Runnable onEdit;
     private final Runnable onExit;
     private TrayIcon icon;
 
-    public Tray(Runnable onReload, Runnable onExit) {
+    public Tray(Runnable onReload, Runnable onEdit, Runnable onExit) {
         this.onReload = onReload;
+        this.onEdit = onEdit;
         this.onExit = onExit;
     }
 
@@ -33,7 +35,10 @@ public final class Tray {
         reload.addActionListener(e -> onReload.run());
         MenuItem exit = new MenuItem("Exit");
         exit.addActionListener(e -> onExit.run());
+        MenuItem edit = new MenuItem("Edit config...");
+        edit.addActionListener(e -> onEdit.run());
         menu.add(reload);
+        menu.add(edit);
         menu.addSeparator();
         menu.add(exit);
 

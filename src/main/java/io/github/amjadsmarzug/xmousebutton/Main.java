@@ -6,8 +6,10 @@ import io.github.amjadsmarzug.xmousebutton.engine.Engine;
 import io.github.amjadsmarzug.xmousebutton.model.Config;
 import io.github.amjadsmarzug.xmousebutton.platform.Platform;
 import io.github.amjadsmarzug.xmousebutton.platform.PlatformFactory;
+import io.github.amjadsmarzug.xmousebutton.ui.ConfigEditor;
 import io.github.amjadsmarzug.xmousebutton.ui.Tray;
 
+import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -26,6 +28,7 @@ public final class Main {
     public static void main(String[] args) throws Exception {
         Path configPath = null;
         boolean checkOnly = false;
+        boolean editorOnly = false;
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -37,6 +40,7 @@ public final class Main {
                     configPath = Paths.get(args[++i]);
                 }
                 case "--check" -> checkOnly = true;
+                case "--editor" -> editorOnly = true;
                 case "--version" -> {
                     System.out.println("xmousebutton " + VERSION);
                     return;
@@ -56,6 +60,16 @@ public final class Main {
             configPath = defaultConfigPath();
         }
         ensureConfigExists(configPath);
+
+        if (editorOnly) {
+            if (GraphicsEnvironment.isHeadless()) {
+                System.err.println("the config editor needs a desktop session");
+                System.exit(3);
+                return;
+            }
+            ConfigEditor.open(configPath, null);
+            return;
+        }
 
         Config config;
         try {
@@ -81,11 +95,13 @@ public final class Main {
 
         Engine engine = new Engine(platform, config);
         platform.startMouseHook(engine::handle);
+        engine.startProfileWatch();
 
         CountDownLatch done = new CountDownLatch(1);
         Path finalConfigPath = configPath;
         Tray tray = new Tray(
                 () -> reload(finalConfigPath, engine),
+                () -> ConfigEditor.open(finalConfigPath, () -> reload(finalConfigPath, engine)),
                 done::countDown);
         boolean trayShown = tray.install("XMouseButton: " + finalConfigPath.getFileName());
         if (!trayShown) {
@@ -95,10 +111,12 @@ public final class Main {
                 + " profile(s) from " + configPath);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            engine.stop();
             platform.stopMouseHook();
             tray.remove();
         }));
         done.await();
+        engine.stop();
         platform.stopMouseHook();
         tray.remove();
         System.exit(0);
@@ -136,11 +154,12 @@ public final class Main {
             System.err.println(problem);
         }
         System.out.println("""
-                Usage: xmousebutton [--config FILE] [--check] [--version]
+                Usage: xmousebutton [--config FILE] [--check] [--editor] [--version]
 
                   --config FILE   read bindings from FILE
                                   (default: ~/.xmousebutton/config.conf)
                   --check         parse the config, report errors and exit
+                  --editor        open the graphical config editor
                   --version       print the version
                 """);
     }
