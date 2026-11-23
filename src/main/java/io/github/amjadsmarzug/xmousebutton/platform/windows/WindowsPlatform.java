@@ -11,7 +11,13 @@ import io.github.amjadsmarzug.xmousebutton.model.MouseButton;
 import io.github.amjadsmarzug.xmousebutton.model.WindowInfo;
 import io.github.amjadsmarzug.xmousebutton.platform.Platform;
 
+import com.sun.jna.Memory;
+
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -60,7 +66,14 @@ public final class WindowsPlatform implements Platform {
     private static final int KEYEVENTF_KEYUP = 0x0002;
     private static final int PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
+    private static final int INPUT_KEYBOARD = 1;
+    private static final int KEYEVENTF_UNICODE = 0x0004;
+    private static final int SPI_GETMOUSESPEED = 0x0070;
+    private static final int SPI_SETMOUSESPEED = 0x0071;
+
     private volatile Predicate<ButtonEvent> handler;
+    /** Pointer speed before this process changed it, or null if unchanged. Guarded by this. */
+    private Integer savedPointerSpeed;
     private Win32.LowLevelMouseProc callback;
     private Pointer hook;
 
@@ -76,6 +89,7 @@ public final class WindowsPlatform implements Platform {
 
     @Override
     public void startMouseHook(Predicate<ButtonEvent> handler) throws IOException {
+        recoverPointerSpeed();
         this.handler = handler;
         CompletableFuture<Void> ready = new CompletableFuture<>();
         Thread thread = new Thread(() -> runMessageLoop(ready), "xmousebutton-hook");
@@ -172,6 +186,107 @@ public final class WindowsPlatform implements Platform {
             Win32.User32.INSTANCE.UnhookWindowsHookEx(hook);
             hook = null;
         }
+        setPointerSpeed(null);
+    }
+
+    @Override
+    public synchronized void setPointerSpeed(Integer speed) {
+        if (speed == null) {
+            if (savedPointerSpeed != null) {
+                writePointerSpeed(savedPointerSpeed);
+                savedPointerSpeed = null;
+                deleteBackup();
+            }
+            return;
+        }
+        if (speed < 1 || speed > 20) {
+            throw new IllegalArgumentException("pointer speed must be 1 to 20");
+        }
+        if (savedPointerSpeed == null) {
+            savedPointerSpeed = readPointerSpeed();
+            writeBackup(savedPointerSpeed);
+        }
+        writePointerSpeed(speed);
+    }
+
+    private static int readPointerSpeed() {
+        Memory value = new Memory(4);
+        if (!Win32.User32.INSTANCE.SystemParametersInfoW(SPI_GETMOUSESPEED, 0, value, 0)) {
+            throw new IllegalStateException("cannot read pointer speed, error " + Native.getLastError());
+        }
+        return value.getInt(0);
+    }
+
+    private static void writePointerSpeed(int speed) {
+        if (!Win32.User32.INSTANCE.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, Pointer.createConstant(speed), 0)) {
+            throw new IllegalStateException("cannot set pointer speed, error " + Native.getLastError());
+        }
+    }
+
+    /**
+     * The speed is changed for the live session only. If the app crashed, the backup file still
+     * holds the original value, so put it back before doing anything else.
+     */
+    private static void recoverPointerSpeed() {
+        Path backup = backupPath();
+        if (!Files.exists(backup)) {
+            return;
+        }
+        try {
+            int original = Integer.parseInt(Files.readString(backup, StandardCharsets.UTF_8).trim());
+            if (original >= 1 && original <= 20) {
+                writePointerSpeed(original);
+            }
+        } catch (IOException | RuntimeException e) {
+            System.err.println("could not restore pointer speed from " + backup + ": " + e.getMessage());
+            return;
+        }
+        deleteBackup();
+    }
+
+    private static void writeBackup(int speed) {
+        try {
+            Path backup = backupPath();
+            Files.createDirectories(backup.getParent());
+            Files.writeString(backup, Integer.toString(speed), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            System.err.println("warning: could not write pointer speed backup: " + e.getMessage());
+        }
+    }
+
+    private static void deleteBackup() {
+        try {
+            Files.deleteIfExists(backupPath());
+        } catch (IOException e) {
+            System.err.println("warning: could not remove pointer speed backup: " + e.getMessage());
+        }
+    }
+
+    private static Path backupPath() {
+        return Paths.get(System.getProperty("user.home"), ".xmousebutton", "pointer-speed.bak");
+    }
+
+    @Override
+    public void typeText(String text) {
+        for (char c : text.toCharArray()) {
+            sendUnicode(c, true);
+            sendUnicode(c, false);
+        }
+    }
+
+    /** Sends one UTF-16 code unit with SendInput. Layout depends on INPUT's native size. */
+    private static void sendUnicode(char c, boolean down) {
+        boolean is64 = Native.POINTER_SIZE == 8;
+        int inputSize = is64 ? 40 : 28;
+        long union = is64 ? 8 : 4;          // offset of the KEYBDINPUT member
+        long extraOffset = is64 ? union + 16 : union + 12;
+        Memory input = new Memory(inputSize);
+        input.clear();
+        input.setInt(0, INPUT_KEYBOARD);
+        input.setShort(union + 2, (short) c); // wScan carries the character
+        input.setInt(union + 4, KEYEVENTF_UNICODE | (down ? 0 : KEYEVENTF_KEYUP));
+        input.setPointer(extraOffset, Pointer.createConstant(INJECTED_MARKER));
+        Win32.User32.INSTANCE.SendInput(1, input, inputSize);
     }
 
     @Override

@@ -44,4 +44,19 @@ public sealed interface Action {
      */
     record Hold(long millis, Action onHold, Action onTap) implements Action {
     }
+
+    /** Types text one character at a time, using Unicode input so any character works. */
+    record Type(String text) implements Action {
+    }
+
+    /** Pause between macro steps. Only valid inside a macro. */
+    record Wait(long millis) implements Action {
+    }
+
+    /** Runs steps one after another on a worker thread, so a long macro never blocks the mouse hook. */
+    record Macro(List<Action> steps) implements Action {
+        public Macro {
+            steps = List.copyOf(steps);
+        }
+    }
 }

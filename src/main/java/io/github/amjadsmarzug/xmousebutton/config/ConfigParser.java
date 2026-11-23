@@ -103,6 +103,7 @@ public final class ConfigParser {
         private final List<String> titleGlobs = new ArrayList<>();
         private final Map<Integer, Map<MouseButton, Action>> layers = new LinkedHashMap<>();
         private final Map<MouseButton, Map<MouseButton, Action>> chords = new EnumMap<>(MouseButton.class);
+        private Integer pointerSpeed;
 
         ProfileBuilder(String name) {
             this.name = name;
@@ -112,6 +113,7 @@ public final class ConfigParser {
             switch (key) {
                 case "match.process" -> processGlobs.addAll(splitList(value));
                 case "match.title" -> titleGlobs.addAll(splitList(value));
+                case "pointer_speed" -> applyPointerSpeed(value);
                 default -> applyBinding(key, value);
             }
         }
@@ -146,6 +148,20 @@ public final class ConfigParser {
             layerMap.put(button, action);
         }
 
+        private void applyPointerSpeed(String value) throws ConfigException {
+            if (pointerSpeed != null) {
+                throw new ConfigException("pointer_speed is set twice in [" + name + "]");
+            }
+            try {
+                pointerSpeed = Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                throw new ConfigException("pointer_speed must be a number from 1 to 20");
+            }
+            if (pointerSpeed < 1 || pointerSpeed > 20) {
+                throw new ConfigException("pointer_speed must be from 1 to 20 (Windows default is 10)");
+            }
+        }
+
         /** {@code first+second = action}: fires when {@code second} is pressed while {@code first} is held. */
         private void applyChord(String key, String value) throws ConfigException {
             String[] names = key.split("\\+");
@@ -172,7 +188,7 @@ public final class ConfigParser {
         }
 
         Profile build() {
-            return new Profile(name, processGlobs, titleGlobs, layers, chords);
+            return new Profile(name, processGlobs, titleGlobs, layers, chords, pointerSpeed);
         }
 
         private static List<String> splitList(String value) {

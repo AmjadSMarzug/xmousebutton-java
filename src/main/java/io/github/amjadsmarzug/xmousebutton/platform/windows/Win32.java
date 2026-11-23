@@ -35,6 +35,10 @@ final class Win32 {
         void keybd_event(byte bVk, byte bScan, int dwFlags, Pointer dwExtraInfo);
 
         void mouse_event(int dwFlags, int dx, int dy, int dwData, Pointer dwExtraInfo);
+
+        int SendInput(int nInputs, Pointer pInputs, int cbSize);
+
+        boolean SystemParametersInfoW(int uiAction, int uiParam, Pointer pvParam, int fWinIni);
     }
 
     interface Kernel32 extends StdCallLibrary {

@@ -43,4 +43,13 @@ public interface Platform {
 
     /** Starts a program without waiting for it to exit. */
     void launch(List<String> command) throws IOException;
+
+    /** Types literal text. Each character is sent as Unicode input. */
+    void typeText(String text);
+
+    /**
+     * Sets the system pointer speed (1 to 20). Passing {@code null} restores the speed that was
+     * in effect before the first change.
+     */
+    void setPointerSpeed(Integer speed);
 }

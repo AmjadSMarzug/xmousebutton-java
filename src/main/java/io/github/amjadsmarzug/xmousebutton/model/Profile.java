@@ -21,13 +21,16 @@ public final class Profile {
     private final List<Pattern> titlePatterns;
     private final Map<MouseButton, Action>[] layers;
     private final Map<MouseButton, Map<MouseButton, Action>> chords;
+    private final Integer pointerSpeed;
 
     @SuppressWarnings("unchecked")
     public Profile(String name, List<String> processGlobs, List<String> titleGlobs,
                    Map<Integer, Map<MouseButton, Action>> bindings,
-                   Map<MouseButton, Map<MouseButton, Action>> chords) {
+                   Map<MouseButton, Map<MouseButton, Action>> chords,
+                   Integer pointerSpeed) {
         this.name = name;
         this.chords = Map.copyOf(chords);
+        this.pointerSpeed = pointerSpeed;
         this.processPatterns = processGlobs.stream().map(Glob::compile).toList();
         this.titlePatterns = titleGlobs.stream().map(Glob::compile).toList();
         this.layers = new Map[MAX_LAYER + 1];
@@ -78,7 +81,12 @@ public final class Profile {
         return byFirst == null ? null : byFirst.get(second);
     }
 
+    /** Pointer speed (1 to 20) to use while this profile is active, or {@code null} for the system setting. */
+    public Integer pointerSpeed() {
+        return pointerSpeed;
+    }
+
     public static Profile empty(String name) {
-        return new Profile(name, List.of(), List.of(), Map.of(), Map.of());
+        return new Profile(name, List.of(), List.of(), Map.of(), Map.of(), null);
     }
 }

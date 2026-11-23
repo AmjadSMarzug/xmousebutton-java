@@ -12,7 +12,11 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Turns raw mouse events into actions.
@@ -27,7 +31,13 @@ import java.util.Set;
  * <p>Hold: a {@code hold} binding runs its long-press action from a timer while the button is
  * still down. A release before the timer fires runs the tap action instead.
  *
- * <p>Event handling is synchronized because hold timers fire on another thread.
+ * <p>Macros run on a worker thread so their waits never stall the mouse hook.
+ *
+ * <p>Pointer speed: while a profile sets {@code pointer_speed}, that speed is applied. A watch
+ * started with {@link #startProfileWatch()} re-checks the foreground window every quarter second,
+ * so the speed follows the window even when the mouse is not clicked.
+ *
+ * <p>Event handling is synchronized because hold timers and the profile watch run on other threads.
  */
 public final class Engine {
 
@@ -42,6 +52,15 @@ public final class Engine {
     private final Set<MouseButton> chordFirsts = EnumSet.noneOf(MouseButton.class);
     private int activeLayer;
     private MouseButton layerOwner;
+    private Integer appliedPointerSpeed;
+    private boolean watching;
+    private final ExecutorService macroWorker = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "xmousebutton-macro");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    private static final long WATCH_INTERVAL_MS = 250;
 
     public Engine(Platform platform, Config config) {
         this(platform, config, Scheduler.system());
@@ -51,6 +70,52 @@ public final class Engine {
         this.platform = platform;
         this.config = config;
         this.scheduler = scheduler;
+    }
+
+    /** Starts re-checking the foreground window so per-profile pointer speed follows focus. */
+    public synchronized void startProfileWatch() {
+        watching = true;
+        watchTick();
+    }
+
+    private void watchTick() {
+        if (!watching) {
+            return;
+        }
+        applyPointerSpeed(config.resolve(platform.foregroundWindow()));
+        scheduler.schedule(this::onWatchTimer, WATCH_INTERVAL_MS);
+    }
+
+    synchronized void onWatchTimer() {
+        watchTick();
+    }
+
+    /** Stops the watch and restores the system pointer speed. */
+    public synchronized void stop() {
+        watching = false;
+        if (appliedPointerSpeed != null) {
+            platform.setPointerSpeed(null);
+            appliedPointerSpeed = null;
+        }
+        macroWorker.shutdown();
+    }
+
+    private void applyPointerSpeed(Profile profile) {
+        Integer wanted = profile.pointerSpeed();
+        if (Objects.equals(wanted, appliedPointerSpeed)) {
+            return;
+        }
+        try {
+            platform.setPointerSpeed(wanted);
+            appliedPointerSpeed = wanted;
+        } catch (RuntimeException e) {
+            System.err.println("could not change pointer speed: " + e.getMessage());
+        }
+    }
+
+    /** Waits until queued macros have finished. Intended for tests. */
+    void awaitMacros() throws InterruptedException, ExecutionException {
+        macroWorker.submit(() -> { }).get();
     }
 
     public void setConfig(Config config) {
@@ -69,8 +134,9 @@ public final class Engine {
             if (!event.pressed()) {
                 return false;
             }
-            Action action = config.resolve(platform.foregroundWindow()).lookup(activeLayer, button);
-            return execute(action);
+            Profile profile = config.resolve(platform.foregroundWindow());
+            applyPointerSpeed(profile);
+            return execute(profile.lookup(activeLayer, button));
         }
 
         if (event.pressed()) {
@@ -81,6 +147,7 @@ public final class Engine {
 
     private boolean press(MouseButton button) {
         Profile profile = config.resolve(platform.foregroundWindow());
+        applyPointerSpeed(profile);
 
         if (tryChord(button, profile)) {
             return true;
@@ -185,9 +252,33 @@ public final class Engine {
                 launch(r);
                 yield true;
             }
+            case Action.Type t -> {
+                platform.typeText(t.text());
+                yield true;
+            }
+            case Action.Macro m -> {
+                macroWorker.execute(() -> runMacro(m.steps()));
+                yield true;
+            }
             case Action.Layer l -> true;
             case Action.Hold h -> true; // nested holds are rejected by the parser
+            case Action.Wait w -> true; // waits only exist inside macros
         };
+    }
+
+    private void runMacro(List<Action> steps) {
+        for (Action step : steps) {
+            if (step instanceof Action.Wait wait) {
+                try {
+                    Thread.sleep(wait.millis());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            } else {
+                execute(step);
+            }
+        }
     }
 
     private void launch(Action.Run run) {

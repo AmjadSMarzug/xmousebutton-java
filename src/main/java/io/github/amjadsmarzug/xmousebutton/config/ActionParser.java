@@ -25,6 +25,10 @@ public final class ActionParser {
     }
 
     public static Action parse(String text) throws ConfigException {
+        return parseOne(text, false);
+    }
+
+    private static Action parseOne(String text, boolean inMacro) throws ConfigException {
         String trimmed = text.trim();
         if (trimmed.isEmpty()) {
             throw new ConfigException("missing action");
@@ -61,6 +65,26 @@ public final class ActionParser {
                 yield new Action.Run(command);
             }
             case "hold" -> parseHold(arg);
+            case "type" -> {
+                requireArg(verb, arg);
+                String literal = arg.length() >= 2 && arg.startsWith("\"") && arg.endsWith("\"")
+                        ? arg.substring(1, arg.length() - 1)
+                        : arg;
+                yield new Action.Type(literal);
+            }
+            case "wait" -> {
+                if (!inMacro) {
+                    throw new ConfigException("'wait' only works inside a macro");
+                }
+                requireArg(verb, arg);
+                yield new Action.Wait(parseMillis(arg, 0, 60_000, "wait"));
+            }
+            case "macro" -> {
+                if (inMacro) {
+                    throw new ConfigException("macros cannot be nested");
+                }
+                yield parseMacro(arg);
+            }
             case "layer" -> {
                 requireArg(verb, arg);
                 int layer;
@@ -100,6 +124,34 @@ public final class ActionParser {
             }
         }
         return new Action.Wheel(direction, notches);
+    }
+
+    /** {@code macro step ; step ; ...}. Steps may include {@code wait <ms>}. */
+    private static Action parseMacro(String arg) throws ConfigException {
+        requireArg("macro", arg);
+        List<Action> steps = new java.util.ArrayList<>();
+        for (String part : arg.split(";")) {
+            if (part.isBlank()) {
+                throw new ConfigException("macro has an empty step");
+            }
+            Action step = parseOne(part, true);
+            requireSimple(step, "macro step");
+            steps.add(step);
+        }
+        return new Action.Macro(steps);
+    }
+
+    private static long parseMillis(String arg, long min, long max, String verb) throws ConfigException {
+        long value;
+        try {
+            value = Long.parseLong(arg.trim());
+        } catch (NumberFormatException e) {
+            throw new ConfigException(verb + " needs a time in milliseconds");
+        }
+        if (value < min || value > max) {
+            throw new ConfigException(verb + " time must be from " + min + " to " + max + " ms");
+        }
+        return value;
     }
 
     /** {@code hold <ms> <action> [| <tap action>]}. Without a tap action, a short press does nothing. */

@@ -58,4 +58,14 @@ final class RecordingPlatform implements Platform {
     public void launch(List<String> command) {
         calls.add("launch " + String.join(" ", command));
     }
+
+    @Override
+    public void typeText(String text) {
+        calls.add("type " + text);
+    }
+
+    @Override
+    public void setPointerSpeed(Integer speed) {
+        calls.add("speed " + speed);
+    }
 }

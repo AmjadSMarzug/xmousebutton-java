@@ -63,4 +63,14 @@ public final class UnsupportedPlatform implements Platform {
     public void launch(List<String> command) {
         throw new UnsupportedOperationException("no process backend for " + osName + " yet");
     }
+
+    @Override
+    public void typeText(String text) {
+        throw new UnsupportedOperationException("no input backend for " + osName + " yet");
+    }
+
+    @Override
+    public void setPointerSpeed(Integer speed) {
+        // No pointer-speed backend here, so per-profile speeds are ignored.
+    }
 }
