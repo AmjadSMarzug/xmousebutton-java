@@ -18,10 +18,13 @@ jobs:
         include:
           - os: ubuntu-latest
             label: linux
+            icon: packaging/icons/xmousebutton.png
           - os: windows-latest
             label: windows
+            icon: packaging/icons/xmousebutton.ico
           - os: macos-latest
             label: macos
+            icon: packaging/icons/xmousebutton.icns
 
     defaults:
       run:
@@ -43,6 +46,10 @@ jobs:
       - name: Build, test and package fat jar
         run: ./gradlew build fatJar --no-daemon --stacktrace
 
+      - name: Install rpm tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
       - name: Read version
         id: version
         run: |
@@ -63,6 +70,7 @@ jobs:
             --type app-image \
             --name XMouseButton \
             --app-version "${{ steps.version.outputs.version }}" \
+            --icon "${{ matrix.icon }}" \
             --input "$STAGING" \
             --main-jar xmousebutton.jar \
             --main-class io.github.amjadsmarzug.xmousebutton.Main \
@@ -80,6 +88,27 @@ jobs:
         run: |
           Compress-Archive -Path dist/XMouseButton -DestinationPath "XMouseButton-windows-${{ steps.version.outputs.version }}.zip"
 
+      - name: Build RPM (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          rm -rf dist-rpm
+          jpackage \
+            --type rpm \
+            --name xmousebutton \
+            --app-version "${{ steps.version.outputs.version }}" \
+            --icon "${{ matrix.icon }}" \
+            --description "Remap mouse buttons and the scroll wheel per application" \
+            --vendor "Amjad Salem Marzug" \
+            --license-file LICENSE \
+            --linux-rpm-license-type MIT \
+            --linux-app-category utils \
+            --linux-shortcut \
+            --input build/jpackage-input \
+            --main-jar xmousebutton.jar \
+            --main-class io.github.amjadsmarzug.xmousebutton.Main \
+            --dest dist-rpm
+          cp dist-rpm/*.rpm "xmousebutton-${{ steps.version.outputs.version }}-linux.x86_64.rpm"
+
       - name: Keep the fat jar for Linux runners only
         if: runner.os == 'Linux'
         run: cp build/libs/*-all.jar "xmousebutton-${{ steps.version.outputs.version }}-all.jar"
@@ -91,6 +120,7 @@ jobs:
           path: |
             XMouseButton-*.tar.gz
             XMouseButton-*.zip
+            xmousebutton-*.rpm
             xmousebutton-*-all.jar
           if-no-files-found: error
 

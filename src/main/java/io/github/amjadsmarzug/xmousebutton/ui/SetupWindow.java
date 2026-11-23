@@ -166,6 +166,7 @@ public final class SetupWindow {
                 closeWindow();
             }
         });
+        frame.setIconImage(Tray.createIcon());
         frame.setContentPane(buildContent());
         loadFile(file);
         frame.pack();

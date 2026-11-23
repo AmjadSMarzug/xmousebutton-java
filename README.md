@@ -23,13 +23,17 @@ backends are welcome; see [Adding a backend](#adding-a-backend).
 
 ## Download
 
-Tagged releases include:
+Tagged releases (`v*`) are published automatically on the
+[Releases page](https://github.com/AmjadSMarzug/xmousebutton-java/releases). Each release includes:
 
-- `XMouseButton-windows-<version>.zip`, a bundled app image (no Java install needed)
-- `XMouseButton-linux-<version>.tar.gz` and `XMouseButton-macos-<version>.tar.gz`
-- `xmousebutton-<version>-all.jar`, a single jar that needs Java 21 or newer
+- `xmousebutton-<version>-linux.x86_64.rpm`: installs under `/opt/xmousebutton` with its own Java
+  runtime, so no Java install is needed. Install with `sudo dnf install ./xmousebutton-<version>-linux.x86_64.rpm`.
+- `XMouseButton-linux-<version>.tar.gz`, `XMouseButton-macos-<version>.tar.gz` and
+  `XMouseButton-windows-<version>.zip`: app images with a bundled runtime.
+- `xmousebutton-<version>-all.jar`: a single jar that needs Java 21 or newer.
 
-Each release also has `SHA256SUMS.txt`.
+Each release also has `SHA256SUMS.txt`. The Linux and macOS builds can validate configs and open
+the setup window, but they do not remap mouse input yet (see the status table above).
 
 ## Quick start
 
@@ -216,6 +220,9 @@ Requirements: JDK 21 or newer. The Gradle wrapper is included.
 ```
 
 On Windows use `gradlew.bat` in place of `./gradlew`.
+
+The logo lives in `packaging/icons/`. `xmousebutton.svg` is the source, and
+`java packaging/make-icons.java` regenerates the PNG, ICO and ICNS files from the same drawing.
 
 To create the app image that the release workflow produces:
 

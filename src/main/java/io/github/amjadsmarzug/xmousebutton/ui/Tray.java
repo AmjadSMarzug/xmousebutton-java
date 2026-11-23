@@ -10,6 +10,9 @@ import java.awt.RenderingHints;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import javax.imageio.ImageIO;
 
 /** Optional system tray icon with reload and exit actions. Does nothing when the desktop has no tray. */
 public final class Tray {
@@ -60,7 +63,18 @@ public final class Tray {
         }
     }
 
-    private static Image createIcon() {
+    /** The app logo from resources, or a plain drawn fallback if the resource is missing. */
+    static Image createIcon() {
+        try (InputStream in = Tray.class.getResourceAsStream("/icons/xmousebutton-64.png")) {
+            if (in != null) {
+                Image logo = ImageIO.read(in);
+                if (logo != null) {
+                    return logo;
+                }
+            }
+        } catch (IOException ignored) {
+            // fall through to the drawn icon
+        }
         int size = 32;
         BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
